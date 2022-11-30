@@ -11,6 +11,26 @@ type expr =
   | Or of expr * expr
   | Not of expr
 
+type lZeroType = TNat | TBool
+
+let rec typeinfer e =
+  match e with
+  | True -> Some TBool
+  | False -> Some TBool
+  | Zero -> Some TNat
+  | Succ ee when typeinfer ee = Some TNat -> Some TNat
+  | Pred ee when typeinfer ee = Some TNat -> Some TNat
+  | IsZero ee when typeinfer ee = Some TNat -> Some TBool
+  | If (cond, e_true, e_false)
+    when typeinfer cond = Some TBool && typeinfer e_false = typeinfer e_true ->
+      typeinfer e_true
+  | And (e1, e2) when typeinfer e1 = Some TBool && typeinfer e2 = Some TBool ->
+      Some TBool
+  | Or (e1, e2) when typeinfer e1 = Some TBool && typeinfer e2 = Some TBool ->
+      Some TBool
+  | Not ee when typeinfer ee = Some TBool -> Some TBool
+  | _ -> None
+
 (** Função auxiliar para imprimir uma árvore qualquer*)
 let rec print_expr e =
   match e with
@@ -123,9 +143,14 @@ and apply_not e =
 
 (** eval aplica step e retorna uma lista de passos até o final*)
 let rec eval e =
-  match step e with
-  | None -> [ print_expr e ]
-  | Some stepped -> print_expr e :: eval stepped
+  let proper_eval e' =
+    match step e' with
+    | None -> [ print_expr e' ]
+    | Some stepped -> print_expr e' :: eval stepped
+  in
+  match typeinfer e with
+  | None -> [ print_expr e; "Expressão mal tipada" ]
+  | Some _ -> proper_eval e
 
 (** result usa eval e retorna o último elemento da lista (o resultado) *)
 let result e =
